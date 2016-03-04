@@ -1,3 +1,20 @@
+"""
+select_vme.py
+
+A script to select good events from the unpacked VME data (see unpack_vme.py).
+
+This will select events from the VME data that satisfy the following requirements:
+
+- Coincidence between at least one CoBo and the ion chamber.
+- Event does not saturate the ion chamber ADC
+- Event has a recorded trigger signal
+- Event has *one* peak in the ion chamber
+
+The output is an HDF5 file containing one dataset, 'single_ic_pk_heights', which can be
+read using Pandas' `pd.read_hdf` function. This contains the peak maximum time ('pk_pos') and height ('height'), and
+the time of the peak as determined by a constant fraction discrimination filter ('cfd_pos').
+"""
+
 import numpy as np
 import pandas as pd
 import h5py
@@ -14,11 +31,27 @@ logger.setLevel(logging.INFO)
 
 
 def find_peaks(signal, noise_threshold):
+    """Find the position of the maxima all peaks in the signal.
+
+    Parameters
+    ----------
+    signal : array-like
+        The ion chamber signal. This should be inverted (so the peaks are maxima),
+        and its baseline should already be subtracted out.
+    noise_threshold : number
+        A threshold which is used to mask away noise. This prevents the function from
+        finding peaks that are just noise.
+
+    Returns
+    pks : np.array
+        A list of the positions of the peaks
+    """
     mkd = np.ma.masked_less(signal, noise_threshold).filled(np.nan)
 
     pks = argrelextrema(mkd, comparator=np.greater_equal, order=5, mode='clip')[0]
     adj = pks[np.where(np.diff(pks) == 1)]
     if len(adj) > 0:
+        # Handle flat-top peaks.
         adj_chunks = [np.append(a, a.max() + 1) for a in np.split(adj, np.where(np.diff(adj) > 1)[0] + 1)]
         broad_pks = np.round(np.array([a.mean() for a in adj_chunks]))
         narrow_pks = np.setdiff1d(pks, np.concatenate(adj_chunks))
@@ -28,6 +61,25 @@ def find_peaks(signal, noise_threshold):
 
 
 def cfd_trigger(sig, delay, frac, noise_thresh):
+    """Find the peak position using a constant fraction discriminator.
+
+    Parameters
+    ----------
+    sig : np.array
+        The ion chamber signal. This should be inverted (so the peaks are maxima),
+        and its baseline should already be subtracted out.
+    delay : int
+        The delay for the CFD.
+    frac : float
+        The fraction for the CFD.
+    noise_thresh : number
+        The threshold below which a peak will be considered noise.
+
+    Returns
+    -------
+    np.array
+        The position of the peaks, as determined by the CFD.
+    """
     cfd = sig - frac * np.roll(sig, delay)
     # When finding the zero crossings, omit actual zeros since they will otherwise be
     # counted twice because of the way np.sign works.
@@ -36,18 +88,39 @@ def cfd_trigger(sig, delay, frac, noise_thresh):
 
 
 def coincidence_cut(coinc):
+    """Find events that are coincident between >= 1 CoBo and the ion chamber.
+    """
     return np.logical_and(np.any(coinc[:, :10], axis=1), coinc[:, 10])
 
 
 def saturation_cut(ic):
+    """Find events that do not saturate the ion chamber.
+    """
     return ic.min(axis=1) > 0
 
 
 def trigger_cut(trig):
+    """Find events that have a valid trigger signal.
+    """
     return np.any(trig < 250, axis=1)
 
 
 def select_events(ic, goodidx):
+    """Select events that have one peak in the ion chamber.
+
+    Parameters
+    ----------
+    ic : np.array
+        The raw ion chamber signal from the unpacked VME file.
+    goodidx : np.array of integers
+        The event IDs of events that should be considered. This could be the set of
+        events that pass the other criteria in this script.
+
+    Returns
+    -------
+    pd.DataFrame
+        The height, peak position, and CFD peak position of all events with one ion chamber peak.
+    """
     pkdata = {}
     dropped_evts_maxes = 0
     dropped_evts_cfd = 0

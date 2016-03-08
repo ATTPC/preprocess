@@ -97,7 +97,7 @@ def min_distance(point, array):
         #i += 1
     return min(d)
 
-def find_good_points(counts, r_th):
+def find_good_points(counts, thh, rad):
     N = 100
 
     ind = np.argpartition(counts.flatten(),-N)[-N:]
@@ -105,7 +105,7 @@ def find_good_points(counts, r_th):
 
     r_signal = [0,0]
     r_signal2 = [0,0]
-    r_temp = r_th
+    r_temp = thh
 
     nbins = 500
     tRad = indices[:,0]*math.pi/nbins
@@ -117,36 +117,28 @@ def find_good_points(counts, r_th):
 
     x = np.linspace(50,1600,100)
     y = np.zeros(100)
-    plt.plot(r_th[:,0],r_th[:,1],'r.')
+    plt.plot(thh[:,0],thh[:,1],'r.')
     sig_i = []
     sig_i2 = []
     for idx, rr in enumerate(rRad): 
-        #if not((rr in rRad[:idx]) or (np.where(np.logical_and(rRad[:idx]>rr-3, rRad[:idx]<rr+3)))):
-        #if not(((rRad[:idx] > rr-5).any() and (rRad[:idx] < rr+5).any()) ):
         mindist = 1000
         if(idx > 1):   
             d = test[:idx]
             current = (tRad[idx],rRad[idx])
             mindist = min_distance(current,d)
-            #print("mindist = " , mindist)
         if(mindist > 25):
-        #if not(((tRad[:idx] > tRad[idx]-5).any() and (tRad[:idx] < tRad[idx]+5).any()) ):
-        #np.where((rRad[:idx] > rr-5) and (rRad[:idx] < rr+5)))
-        #if not(rr in rRad[:idx]):
-           # print(rr, tRad[idx])
             y_temp= (rRad[idx]-x*math.cos(tRad[idx]))/math.sin(tRad[idx])
             y = np.vstack((y,y_temp))
-            #plt.plot(x,y_temp,'-')
             b = math.sin(tRad[idx])
             c = -rr
             a = math.cos(tRad[idx])
 
             y2 = (c/b)-a*x/b
-            
+
             idxx = []
             idxx2 = []
             indd = 0;
-            for rr in r_th:       
+            for rr in thh:       
                 yy = (a*(-b*rr[0]+a*rr[1])-b*c)/(a**2+b**2)
                 xx = (b*(b*rr[0]-a*rr[1])-a*c)/(a**2+b**2)
     
@@ -159,11 +151,10 @@ def find_good_points(counts, r_th):
                 indd = indd+1
             
             mm = a/b
-            A = np.vstack([r_th[idxx,0], np.ones(len(r_th[idxx,0]))]).T
+            A = np.vstack([thh[idxx,0], np.ones(len(thh[idxx,0]))]).T
             if(A.any()):
-                m, yint = np.linalg.lstsq(A, r_th[idxx,1])[0]
+                m, yint = np.linalg.lstsq(A, thh[idxx,1])[0]
                 if(m>0):
-                    plt.plot(x, m*x+ yint, '-r')
                     indd2 = 0;
                     for rr in r_th:       
                         yy = (rr[0]*m + rr[1]*m*m+yint)/(m*m+1)
@@ -174,34 +165,46 @@ def find_good_points(counts, r_th):
                                 sig_i2.append(indd2)
                                 r_signal2 = np.vstack((r_signal2,rr))
                         indd2 = indd2+1
-                    plt.plot(r_signal2[:,0],r_signal2[:,1],'g.')
-               
+                 
     r_signal2 = r_signal2[1:]
-    possible_inner = th_z
-    possible_inner[:,0] = th_z[:,0]
-    possible_inner[:,1] = th_z[:,1]-math.pi*rad_z[:,1]
+    possible_inner = np.zeros(rad.shape)
+    possible_inner[:,0] = rad_z[:,0]
+    possible_inner[:,1] = thh[:,1]-math.pi*rad[:,1]
+    possible_outer = np.zeros(rad.shape)
+    possible_outer[:,0] = rad_z[:,0]
+    possible_outer[:,1] = thh[:,1]+math.pi*rad[:,1]
+    
     ordered = r_signal2[np.argsort(r_signal2[:,0])]
-    A = np.vstack([ordered[:40,0], np.ones(len(ordered[:40,0]))]).T
-    m, yint = np.linalg.lstsq(A, ordered[:40,1])[0]
-    plt.plot(ordered[:40,0], ordered[:40,1],'.',possible_inner[:,0], possible_inner[:,1],'.')
-    plt.plot(x, m*x+ yint, '-b')
+    A_end = np.vstack([ordered[:20,0], np.ones(len(ordered[:20,0]))]).T
+    m_end, yint_end = np.linalg.lstsq(A_end, ordered[:20,1])[0]
+    A_begin = np.vstack([ordered[-20:,0], np.ones(len(ordered[-20:,0]))]).T
+    m_begin, yint_begin = np.linalg.lstsq(A_begin, ordered[-20:,1])[0]
+    
     indd = 0;
     for rr in possible_inner:      
-        if(rr[0] > (ordered[0,0] - 50) and rr[0] < (ordered[0,0] + 50)):              
-            yy = (rr[0]*m + rr[1]*m*m+yint)/(m*m+1)
-            xx = (rr[0]+rr[1]*m-yint*m)/(m*m+1)
-            if(math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2) < 8):
+        if(rr[0] > (ordered[2,0] - 50) and rr[0] < (ordered[2,0] + 50)):      
+            yy = (rr[0]*m_end + rr[1]*m_end*m_end+yint_end)/(m_end*m_end+1)
+            xx = (rr[0]+rr[1]*m_end-yint_end*m_end)/(m_end*m_end+1)
+            if(math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2) < 22):
+                idxx2.append(indd)
+                if ((indd in sig_i2) is False):
+                    sig_i2.append(indd)
+        indd = indd+1
+        
+    indd = 0  
+    for rr in possible_outer:  
+        if(rr[0] > (ordered[-1,0] - 50) and rr[0] < (ordered[-1,0] + 50)):       
+            yy = (rr[0]*m_begin + rr[1]*m_begin*m_begin+yint_begin)/(m_begin*m_begin+1)
+            xx = (rr[0]+rr[1]*m_begin-yint_begin*m_begin)/(m_begin*m_begin+1)
+            if(math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2) < 22):
                 idxx2.append(indd)
                 if ((indd in sig_i2) is False):
                     sig_i2.append(indd)
                     r_signal2 = np.vstack((r_signal2,rr))
                 
         indd = indd+1
-    plt.plot(r_signal2[:,0],r_signal2[:,1],'g.')
     
     return sig_i2, rRad, tRad, r_signal2
-
-
 
 def hough_line(xy):
     """ Finds lines in data
@@ -232,6 +235,8 @@ def hough_line(xy):
     return rRad, tRad, countsRad
 
 
+
+
 def clean(xyz):
     a,b = hough_circle(xyz)
     print("center found at ", a, b)
@@ -251,53 +256,4 @@ def clean(xyz):
 
     r,t, counts = hough_line(r_th)
     print("r, t = ", r, t)
-
-
-def main():
-    parser = argparse.ArgumentParser(description='A script to clean data and write results to an HDF5 file')
-    parser.add_argument('input', help='The input evt file')
-    parser.add_argument('output', help='The output HDF5 file')
-    args = parser.parse_args()
-
-    #filename = '../../remove-noise/run_0150.evt'
-    efile = pytpc.EventFile(args.input,'r')
-    #with pytpc.HDFDataFile(args.output, 'a') as hfile:
-     #   gp = hfile.fp.require_group(hfile.get_group_name)
-    gp = []
-
-    all_evts = set(efile.evtids)
-
-    if len(gp) > 0:
-        finished_evts = set(int(k) for k in gp.keys() if k.isdigit())
-        evts_to_process = all_evts - finished_evts
-        if len(evts_to_process) > 0:
-            print('Already processed {} events. Continuing from where we left off.'.format(len(finished_evts)))
-        else:
-            print('All events have already been processed.')
-            sys.exit(0)
-    else:
-        evts_to_process = all_evts
-        #for i in smart_progress_bar(evts_to_process):
-        for i in evts_to_process:
-            evt = efile.get_by_event_id(i)
-            raw_xyz = evt.xyzs(peaks_only=True)
-            v_drift = pytpc.simulation.drift_velocity_vector(-5.2,9000,1.75,0.10472)
-            uvw = pytpc.evtdata.calibrate(raw_xyz,v_drift,12.5)
-            tmat = pytpc.utilities.tilt_matrix(-0.10472)
-            uvw = np.dot(tmat,uvw[:,:3].T).T
-            clean(uvw)
-
-
-
-if __name__ == '__main__':
-    import signal
-
-    def handle_signal(signum, stack_frame):
-        logger.critical('Received signal %d. Quitting.', signum)
-        sys.stdout.flush()
-        sys.exit(1)
-
-    signal.signal(signal.SIGTERM, handle_signal)
-    signal.signal(signal.SIGQUIT, handle_signal)
-
-    main()
+    sig_i, rRad, tRad, r_s = find_good_points(counts, th_z)

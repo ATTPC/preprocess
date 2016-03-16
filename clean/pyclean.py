@@ -117,9 +117,13 @@ def find_good_points(counts, thh, rad):
 
     x = np.linspace(50,1600,100)
     y = np.zeros(100)
-    plt.plot(thh[:,0],thh[:,1],'r.')
+    #plt.plot(thh[:,0],thh[:,1],'r.')
     sig_i = []
     sig_i2 = []
+    #print("thh.shape = " , thh[:,1].shape)
+    dist = np.zeros(thh[:,1].shape) 
+    dist += 1000 #initialize all values to 1000
+    #print(dist)
     for idx, rr in enumerate(rRad): 
         mindist = 1000
         if(idx > 1):   
@@ -141,9 +145,10 @@ def find_good_points(counts, thh, rad):
             for rr in thh:       
                 yy = (a*(-b*rr[0]+a*rr[1])-b*c)/(a**2+b**2)
                 xx = (b*(b*rr[0]-a*rr[1])-a*c)/(a**2+b**2)
-    
-                if(math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2) < 25):
-                    plt.plot(rr[0],rr[1],'g.')
+                d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)
+               
+                if(d < 25):
+                    #plt.plot(rr[0],rr[1],'g.')
                     idxx.append(indd)
                     if ((indd in sig_i) is False):
                         sig_i.append(indd)
@@ -156,22 +161,25 @@ def find_good_points(counts, thh, rad):
                 m, yint = np.linalg.lstsq(A, thh[idxx,1])[0]
                 if(m>0):
                     indd2 = 0;
-                    for rr in r_th:       
+                    for rr in thh:       
                         yy = (rr[0]*m + rr[1]*m*m+yint)/(m*m+1)
                         xx = (rr[0]+rr[1]*m-yint*m)/(m*m+1)
-                        if(math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2) < 8):
+                        d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)
+                        if(d < dist[indd2]):
+                             dist[indd2] = d
+                        if(d < 8):
                             idxx2.append(indd2)
                             if ((indd2 in sig_i2) is False):
                                 sig_i2.append(indd2)
                                 r_signal2 = np.vstack((r_signal2,rr))
                         indd2 = indd2+1
-                 
+   
     r_signal2 = r_signal2[1:]
     possible_inner = np.zeros(rad.shape)
-    possible_inner[:,0] = rad_z[:,0]
+    possible_inner[:,0] = rad[:,0]
     possible_inner[:,1] = thh[:,1]-math.pi*rad[:,1]
     possible_outer = np.zeros(rad.shape)
-    possible_outer[:,0] = rad_z[:,0]
+    possible_outer[:,0] = rad[:,0]
     possible_outer[:,1] = thh[:,1]+math.pi*rad[:,1]
     
     ordered = r_signal2[np.argsort(r_signal2[:,0])]
@@ -185,7 +193,10 @@ def find_good_points(counts, thh, rad):
         if(rr[0] > (ordered[2,0] - 50) and rr[0] < (ordered[2,0] + 50)):      
             yy = (rr[0]*m_end + rr[1]*m_end*m_end+yint_end)/(m_end*m_end+1)
             xx = (rr[0]+rr[1]*m_end-yint_end*m_end)/(m_end*m_end+1)
-            if(math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2) < 22):
+            d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)                 
+            if(d < dist[indd]):
+                dist[indd] = d
+            if(d < 22):
                 idxx2.append(indd)
                 if ((indd in sig_i2) is False):
                     sig_i2.append(indd)
@@ -196,15 +207,18 @@ def find_good_points(counts, thh, rad):
         if(rr[0] > (ordered[-1,0] - 50) and rr[0] < (ordered[-1,0] + 50)):       
             yy = (rr[0]*m_begin + rr[1]*m_begin*m_begin+yint_begin)/(m_begin*m_begin+1)
             xx = (rr[0]+rr[1]*m_begin-yint_begin*m_begin)/(m_begin*m_begin+1)
-            if(math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2) < 22):
+            d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)
+            if(d < dist[indd]):
+                dist[indd] = d
+            if(d < 22):
                 idxx2.append(indd)
                 if ((indd in sig_i2) is False):
                     sig_i2.append(indd)
                     r_signal2 = np.vstack((r_signal2,rr))
                 
         indd = indd+1
-    
-    return sig_i2, rRad, tRad, r_signal2
+    #print(dist)
+    return sig_i2, rRad, tRad, dist
 
 def hough_line(xy):
     """ Finds lines in data
@@ -255,5 +269,11 @@ def clean(xyz):
     r_th[:,1] = r_th[:,1]*rad_z[:,1]
 
     r,t, counts = hough_line(r_th)
-    print("r, t = ", r, t)
-    sig_i, rRad, tRad, r_s = find_good_points(counts, th_z)
+    #print("r, t = ", r, t)
+    sig_i, rRad, tRad, dist = find_good_points(counts, th_z, rad_z)
+    #print(xyz.shape)
+    #print(dist.shape)
+    clean_xyz = np.column_stack((xyz,dist)) ###### append distances to data and return!
+    center = [a,b]
+    #print(clean_xyz)
+    return clean_xyz, center

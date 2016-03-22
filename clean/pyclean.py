@@ -57,17 +57,19 @@ def hough_circle(xyzs):
     nbins = 200 #number of bins in r and theta for Hough space discretization
     xyz_order = xyzs[np.argsort(xyzs[:,2])]
     th = np.linspace(0,math.pi,nbins)
-    Hrad = [0,0]
+    #Hrad = [0,0]
     xyz_order_f = xyz_order[5:]
     xyz_order = xyz_order[:-5]
-
+    Hrad = np.zeros((nbins*len(xyz_order),2))
+    index=0
     # sweep through theta, calculate r and bin histogram Hrad
     for theta in th:
         Radius = (xyz_order_f[:,0]**2 - xyz_order[:,0]**2+ xyz_order_f[:,1]**2- xyz_order[:,1]**2)/(2*((xyz_order_f[:,0]- xyz_order[:,0])*np.cos(theta)+(xyz_order_f[:,1]- xyz_order[:,1])*np.sin(theta)))
-        index = 0
+        #index = 0
         for rr in Radius:  
-            aRad = np.hstack((theta,Radius[index]))
-            Hrad = np.vstack((Hrad,aRad))
+            aRad = np.hstack((theta,rr))
+            #Hrad = np.vstack((Hrad,aRad))
+            Hrad[index,:] = aRad
             index +=1
 
     Hrad = Hrad[1:]
@@ -117,19 +119,20 @@ def find_good_points(counts, thh, rad):
 
     x = np.linspace(50,1600,100)
     y = np.zeros(100)
-    #plt.plot(thh[:,0],thh[:,1],'r.')
+
     sig_i = []
     sig_i2 = []
-    #print("thh.shape = " , thh[:,1].shape)
+ 
     dist = np.zeros(thh[:,1].shape) 
     dist += 1000 #initialize all values to 1000
-    #print(dist)
+ 
     for idx, rr in enumerate(rRad): 
         mindist = 1000
         if(idx > 1):   
             d = test[:idx]
             current = (tRad[idx],rRad[idx])
             mindist = min_distance(current,d)
+        # want Hough lines sufficiently far away
         if(mindist > 25):
             y_temp= (rRad[idx]-x*math.cos(tRad[idx]))/math.sin(tRad[idx])
             y = np.vstack((y,y_temp))
@@ -148,14 +151,15 @@ def find_good_points(counts, thh, rad):
                 d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)
                
                 if(d < 25):
-                    #plt.plot(rr[0],rr[1],'g.')
                     idxx.append(indd)
                     if ((indd in sig_i) is False):
                         sig_i.append(indd)
                         r_signal = np.vstack((r_signal,rr))
                 indd = indd+1
-            
-            mm = a/b
+            if(b==0):
+                mm = 1000
+            else:
+                mm = a/b
             A = np.vstack([thh[idxx,0], np.ones(len(thh[idxx,0]))]).T
             if(A.any()):
                 m, yint = np.linalg.lstsq(A, thh[idxx,1])[0]
@@ -173,51 +177,52 @@ def find_good_points(counts, thh, rad):
                                 sig_i2.append(indd2)
                                 r_signal2 = np.vstack((r_signal2,rr))
                         indd2 = indd2+1
-   
-    r_signal2 = r_signal2[1:]
-    possible_inner = np.zeros(rad.shape)
-    possible_inner[:,0] = rad[:,0]
-    possible_inner[:,1] = thh[:,1]-math.pi*rad[:,1]
-    possible_outer = np.zeros(rad.shape)
-    possible_outer[:,0] = rad[:,0]
-    possible_outer[:,1] = thh[:,1]+math.pi*rad[:,1]
-    
-    ordered = r_signal2[np.argsort(r_signal2[:,0])]
-    A_end = np.vstack([ordered[:20,0], np.ones(len(ordered[:20,0]))]).T
-    m_end, yint_end = np.linalg.lstsq(A_end, ordered[:20,1])[0]
-    A_begin = np.vstack([ordered[-20:,0], np.ones(len(ordered[-20:,0]))]).T
-    m_begin, yint_begin = np.linalg.lstsq(A_begin, ordered[-20:,1])[0]
-    
-    indd = 0;
-    for rr in possible_inner:      
-        if(rr[0] > (ordered[2,0] - 50) and rr[0] < (ordered[2,0] + 50)):      
-            yy = (rr[0]*m_end + rr[1]*m_end*m_end+yint_end)/(m_end*m_end+1)
-            xx = (rr[0]+rr[1]*m_end-yint_end*m_end)/(m_end*m_end+1)
-            d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)                 
-            if(d < dist[indd]):
-                dist[indd] = d
-            if(d < 22):
-                idxx2.append(indd)
-                if ((indd in sig_i2) is False):
-                    sig_i2.append(indd)
-        indd = indd+1
-        
-    indd = 0  
-    for rr in possible_outer:  
-        if(rr[0] > (ordered[-1,0] - 50) and rr[0] < (ordered[-1,0] + 50)):       
-            yy = (rr[0]*m_begin + rr[1]*m_begin*m_begin+yint_begin)/(m_begin*m_begin+1)
-            xx = (rr[0]+rr[1]*m_begin-yint_begin*m_begin)/(m_begin*m_begin+1)
-            d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)
-            if(d < dist[indd]):
-                dist[indd] = d
-            if(d < 22):
-                idxx2.append(indd)
-                if ((indd in sig_i2) is False):
-                    sig_i2.append(indd)
-                    r_signal2 = np.vstack((r_signal2,rr))
-                
-        indd = indd+1
-    #print(dist)
+    print(len(r_signal2))
+    if(len(r_signal2)>2):
+        r_signal2 = r_signal2[1:]
+ 
+        possible_inner = np.zeros(rad.shape)
+        possible_inner[:,0] = rad[:,0]
+        possible_inner[:,1] = thh[:,1]-math.pi*rad[:,1]
+        possible_outer = np.zeros(rad.shape)
+        possible_outer[:,0] = rad[:,0]
+        possible_outer[:,1] = thh[:,1]+math.pi*rad[:,1]
+
+        ordered = r_signal2[np.argsort(r_signal2[:,0])]
+        A_end = np.vstack([ordered[:20,0], np.ones(len(ordered[:20,0]))]).T
+        m_end, yint_end = np.linalg.lstsq(A_end, ordered[:20,1])[0]
+        A_begin = np.vstack([ordered[-20:,0], np.ones(len(ordered[-20:,0]))]).T
+        m_begin, yint_begin = np.linalg.lstsq(A_begin, ordered[-20:,1])[0]
+
+        indd = 0;
+        for rr in possible_inner:      
+            if(rr[0] > (ordered[2,0] - 50) and rr[0] < (ordered[2,0] + 50)):      
+                yy = (rr[0]*m_end + rr[1]*m_end*m_end+yint_end)/(m_end*m_end+1)
+                xx = (rr[0]+rr[1]*m_end-yint_end*m_end)/(m_end*m_end+1)
+                d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)                 
+                if(d < dist[indd]):
+                    dist[indd] = d
+                if(d < 22):
+                    idxx2.append(indd)
+                    if ((indd in sig_i2) is False):
+                        sig_i2.append(indd)
+            indd = indd+1
+
+        indd = 0  
+        for rr in possible_outer:  
+            if(rr[0] > (ordered[-1,0] - 50) and rr[0] < (ordered[-1,0] + 50)):       
+                yy = (rr[0]*m_begin + rr[1]*m_begin*m_begin+yint_begin)/(m_begin*m_begin+1)
+                xx = (rr[0]+rr[1]*m_begin-yint_begin*m_begin)/(m_begin*m_begin+1)
+                d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)
+                if(d < dist[indd]):
+                    dist[indd] = d
+                if(d < 22):
+                    idxx2.append(indd)
+                    if ((indd in sig_i2) is False):
+                        sig_i2.append(indd)
+                        r_signal2 = np.vstack((r_signal2,rr))
+
+            indd = indd+1
     return sig_i2, rRad, tRad, dist
 
 def hough_line(xy):
@@ -226,14 +231,16 @@ def hough_line(xy):
     """
     nbins = 500 # number of bins for r, theta histogram
     th = np.linspace(0,math.pi,nbins)
-    Hrad = [0,0]
-
+    #Hrad = [0,0]
+    Hrad = np.zeros((nbins*len(xy),2))
+    index = 0
     for theta in th: #sweep over theta and bin radius r in Hrad
         Radius = xy[:,0]*math.cos(theta) + xy[:,1]*math.sin(theta)
-        index = 0
+        
         for rr in Radius:
-            aRad = np.hstack((theta,Radius[index]))
-            Hrad = np.vstack((Hrad,aRad))
+            aRad = np.hstack((theta,rr))
+            #Hrad = np.vstack((Hrad,aRad))
+            Hrad[index,:] = aRad
             index +=1
  
     Hrad = Hrad[1:]

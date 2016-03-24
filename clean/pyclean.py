@@ -177,7 +177,7 @@ def find_good_points(counts, thh, rad):
                                 sig_i2.append(indd2)
                                 r_signal2 = np.vstack((r_signal2,rr))
                         indd2 = indd2+1
-    print(len(r_signal2))
+    #print(len(r_signal2))
     if(len(r_signal2)>2):
         r_signal2 = r_signal2[1:]
  
@@ -230,6 +230,7 @@ def hough_line(xy):
 
     """
     nbins = 500 # number of bins for r, theta histogram
+    max_val = 2000;
     th = np.linspace(0,math.pi,nbins)
     #Hrad = [0,0]
     Hrad = np.zeros((nbins*len(xy),2))
@@ -243,15 +244,15 @@ def hough_line(xy):
             Hrad[index,:] = aRad
             index +=1
  
-    Hrad = Hrad[1:]
+    #Hrad = Hrad[1:]
     
     #countsRad, xedgesRad, yedgesRad, ImageRad = plt.hist2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-500,500]],cmap=plt.cm.jet)
     #countsRad, xedgesRad, yedgesRad, ImageRad = plt.hist2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-2000,2000]],cmap=plt.cm.jet) 
-    countsRad, xedgesRad, yedgesRad = np.histogram2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-2000,2000]]) 
+    countsRad, xedgesRad, yedgesRad = np.histogram2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-max_val,max_val]]) 
     iRad,jRad = np.unravel_index(countsRad.argmax(), countsRad.shape)
 
     tRad = iRad*math.pi/nbins
-    rRad = jRad*4000/nbins - 2000
+    rRad = jRad*max_val*2/nbins - max_val
 
     return rRad, tRad, countsRad
 
@@ -261,26 +262,30 @@ def hough_line(xy):
 def clean(xyz):
     a,b = hough_circle(xyz)
     print("center found at ", a, b)
-    rad_z = [0,0]
-    th_z = [0,0]
-    for xy in xyz:
-        r_xy = np.sqrt((xy[0]-a)**2+(xy[1]-b)**2)
-        rad_z = np.vstack((rad_z,[xy[2],r_xy]))
-        th_xy = np.arctan((xy[1]-b)/(xy[0]-a))
-        th_z = np.vstack((th_z,[xy[2],th_xy]))
 
-    rad_z = rad_z[1:] 
-    th_z = th_z[1:] 
- 
-    r_th = th_z
-    r_th[:,1] = r_th[:,1]*rad_z[:,1]
+
+    rad_z = np.zeros((len(uvw),2))
+    th_z = np.zeros((len(uvw),2))
+
+    idx=0
+    for xy in uvw:
+        r_xy = np.sqrt((xy[0]-aa)**2+(xy[1]-bb)**2)
+        rad_z[idx,:]=[xy[2],r_xy]
+        th_xy = np.arctan((xy[1]-bb)/(xy[0]-aa))
+    #print(th_xy)
+        th_z[idx,:] =[xy[2],th_xy]
+        idx +=1
+
+    r_th = np.zeros(th_z.shape)
+
+    r_th[:,0] = th_z[:,0]
+    r_th[:,1] = th_z[:,1]*rad_z[:,1]   
 
     r,t, counts = hough_line(r_th)
     #print("r, t = ", r, t)
     sig_i, rRad, tRad, dist = find_good_points(counts, th_z, rad_z)
-    #print(xyz.shape)
-    #print(dist.shape)
+
     clean_xyz = np.column_stack((xyz,dist)) ###### append distances to data and return!
     center = [a,b]
-    #print(clean_xyz)
+ 
     return clean_xyz, center

@@ -54,43 +54,42 @@ def smart_progress_bar(iterable, expected_size=None):
         return progress.bar(iterable, expected_size=expected_size)
 """
 def hough_circle(xyzs):
-    nbins = 200 #number of bins in r and theta for Hough space discretization
-    xyz_order = xyzs[np.argsort(xyzs[:,2])]
-    th = np.linspace(0,math.pi,nbins)
-    #Hrad = [0,0]
-    xyz_order_f = xyz_order[5:]
-    xyz_order = xyz_order[:-5]
-    Hrad = np.zeros((nbins*len(xyz_order),2))
-    index=0
-    # sweep through theta, calculate r and bin histogram Hrad
-    for theta in th:
-        Radius = (xyz_order_f[:,0]**2 - xyz_order[:,0]**2+ xyz_order_f[:,1]**2- xyz_order[:,1]**2)/(2*((xyz_order_f[:,0]- xyz_order[:,0])*np.cos(theta)+(xyz_order_f[:,1]- xyz_order[:,1])*np.sin(theta)))
-        #index = 0
-        for rr in Radius:  
-            aRad = np.hstack((theta,rr))
-            #Hrad = np.vstack((Hrad,aRad))
-            Hrad[index,:] = aRad
-            index +=1
+    xyz_order = xyzs[np.argsort(xyzs[:, 2])]
+
+    nbins = 200  # number of bins in r and theta for Hough space discretization
+    ths = np.linspace(0, np.pi, nbins)
+
+    npts = len(xyz_order) - 5
+    sqdels = xyz_order[5:, :2]**2 - xyz_order[:-5, :2]**2
+    deltas_tiled = np.tile(xyz_order[5:, :2] - xyz_order[:-5, :2], (nbins, 1))
+
+    Hrad = np.empty((nbins*npts, 2))
+
+    Hrad[:, 0] = np.repeat(ths, npts)
+    Hrad[:, 1] = (np.tile(np.sum(sqdels, -1), nbins) /
+                          (2 * (deltas_tiled[:, 0] * np.cos(Hrad[:, 0])
+                                + deltas_tiled[:, 1] * np.sin(Hrad[:, 0]))))
 
     Hrad = Hrad[1:]
-    
+
     # uncomment this line for viewing Hough space histogram (computationally slower)
-    #countsRad, xedgesRad, yedgesRad, ImageRad = plt.hist2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-500,500]],cmap=plt.cm.jet) 
+    # countsRad, xedgesRad, yedgesRad, ImageRad = plt.hist2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-500,500]],cmap=plt.cm.jet)
 
     # comment out this line when viewing Hough space histogram (this would be redundant with previous line)
-    countsRad, xedgesRad, yedgesRad = np.histogram2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-500,500]])
+    countsRad, xedgesRad, yedgesRad = np.histogram2d(Hrad[:, 0], Hrad[:, 1], nbins, range=[[0, math.pi], [-500, 500]])
 
     # max bin of histogram
-    iRad,jRad = np.unravel_index(countsRad.argmax(), countsRad.shape)
-    #convert max bin to theta, radius values
+    iRad, jRad = np.unravel_index(countsRad.argmax(), countsRad.shape)
+    # convert max bin to theta, radius values
     tRad = iRad*math.pi/nbins
     rRad = jRad*1000/nbins - 500
-   
-    #convert theta, r to postions in xy space
-    ax =  rRad*math.cos(tRad)  
-    by =  rRad*math.sin(tRad)
-  
-    return ax,by
+
+    # convert theta, r to postions in xy space
+    ax = rRad*math.cos(tRad)
+    by = rRad*math.sin(tRad)
+
+    return ax, by
+
 def min_distance(point, array):
     d = []
     for a in array:

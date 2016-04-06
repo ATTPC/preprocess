@@ -264,14 +264,14 @@ def clean(xyz):
     print("center found at ", a, b)
 
 
-    rad_z = np.zeros((len(uvw),2))
-    th_z = np.zeros((len(uvw),2))
+    rad_z = np.zeros((len(xyz),2))
+    th_z = np.zeros((len(xyz),2))
 
     idx=0
-    for xy in uvw:
-        r_xy = np.sqrt((xy[0]-aa)**2+(xy[1]-bb)**2)
+    for xy in xyz:
+        r_xy = np.sqrt((xy[0]-a)**2+(xy[1]-b)**2)
         rad_z[idx,:]=[xy[2],r_xy]
-        th_xy = np.arctan((xy[1]-bb)/(xy[0]-aa))
+        th_xy = np.arctan((xy[1]-b)/(xy[0]-a))
     #print(th_xy)
         th_z[idx,:] =[xy[2],th_xy]
         idx +=1

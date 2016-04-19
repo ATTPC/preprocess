@@ -2,9 +2,11 @@
 import pyclean 
 import argparse
 import pytpc
-#import math
+import sys
 import numpy as np
 import h5py
+#import math
+from math import sin, cos
 from pytpc.constants import pi, degrees
 
 def main():
@@ -22,6 +24,7 @@ def main():
     tmat = pytpc.utilities.tilt_matrix(-0.10472)
     inFile =  pytpc.HDFDataFile(args.input, 'r')
     pad_plane = pytpc.generate_pad_plane(rotation_angle=-108*degrees)
+   # reverse_pad_plane =  pytpc.generate_pad_plane(rotation_angle=108*degrees)
     print(inFile)
     with h5py.File(args.output, 'a') as outFile:
         
@@ -33,7 +36,7 @@ def main():
         #print(gp.keys())
         start = 0
         if(len(gp)>0):
-            print(len(gp))
+            #print(len(gp))
             #finished_evts = set(int(k) for k in gp.keys() if k.isdigit())
             finished_evts = len(gp)
             print(finished_evts)
@@ -60,14 +63,21 @@ def main():
             clean_uvw, center_uv = pyclean.clean(uvw)
             nearest_neighbors = pyclean.nearest_neighbor_count(uvw,40) 
             clean_xyz = np.column_stack((raw_xyz,nearest_neighbors,clean_uvw[:,-1]))
+            #clean_xyz = np.column_stack((clean_uvw,nearest_neighbors,clean_uvw[:,-1]))
             gp = outFile.require_group('clean')
             deset = gp.create_dataset('{:d}'.format(evt.evt_id), data=clean_xyz, compression='gzip', shuffle=True)
-            center_uvw = np.hstack((center_uv,0))
+            #center_uvw = np.hstack((center_uv,0))
             #print(center_uvw)
-            center_xyz = np.dot(tmat.T,center_uvw)
+            #center_xyz = np.dot(tmat.T,center_uvw)
             #print(center_xyz)
-            deset.attrs['center'] = center_xyz[:2]
- 
+            #deset.attrs['center'] = center_xyz[:2] 
+            un_tmat = pytpc.utilities.tilt_matrix(0.10472)
+            un_rotate_ang = 108*degrees
+            rot = [cos(un_rotate_ang), -sin(un_rotate_ang)],[sin(un_rotate_ang), cos(un_rotate_ang)]
+            cc = [center_uv[0],center_uv[1],0]
+            cc = np.dot(un_tmat,cc)  
+            cc = np.dot(rot,cc[:2].T).T
+            deset.attrs['center'] = cc
     return 0
 
 

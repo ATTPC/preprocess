@@ -53,6 +53,11 @@ def smart_progress_bar(iterable, expected_size=None):
         from clint.textui import progress
         return progress.bar(iterable, expected_size=expected_size)
 """
+
+def nearest_neighbor_count(data, radius):
+    return np.sum((np.sqrt(np.sum((data[:, None, :3] - data[:, :3])**2, -1)) <= radius)
+                  & ~np.eye(len(data), dtype='bool'), axis=0)
+
 def hough_circle(xyzs):
     xyz_order = xyzs[np.argsort(xyzs[:, 2])]
 
@@ -194,19 +199,21 @@ def find_good_points(counts, thh, rad):
         m_begin, yint_begin = np.linalg.lstsq(A_begin, ordered[-20:,1])[0]
 
         indd = 0;
-        for rr in possible_inner:      
-            if(rr[0] > (ordered[2,0] - 50) and rr[0] < (ordered[2,0] + 50)):      
-                yy = (rr[0]*m_end + rr[1]*m_end*m_end+yint_end)/(m_end*m_end+1)
-                xx = (rr[0]+rr[1]*m_end-yint_end*m_end)/(m_end*m_end+1)
-                d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)                 
-                if(d < dist[indd]):
-                    dist[indd] = d
-                if(d < 22):
-                    idxx2.append(indd)
-                    if ((indd in sig_i2) is False):
-                        sig_i2.append(indd)
-            indd = indd+1
-
+        for rr in possible_inner:   
+            try:
+                if(rr[0] > (ordered[2,0] - 50) and rr[0] < (ordered[2,0] + 50)):      
+                    yy = (rr[0]*m_end + rr[1]*m_end*m_end+yint_end)/(m_end*m_end+1)
+                    xx = (rr[0]+rr[1]*m_end-yint_end*m_end)/(m_end*m_end+1)
+                    d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)                 
+                    if(d < dist[indd]):
+                        dist[indd] = d
+                        if(d < 22):
+                            idxx2.append(indd)
+                            if ((indd in sig_i2) is False):
+                                sig_i2.append(indd)
+                                indd = indd+1
+            except IndexError:
+                print("IndexError")
         indd = 0  
         for rr in possible_outer:  
             if(rr[0] > (ordered[-1,0] - 50) and rr[0] < (ordered[-1,0] + 50)):       
@@ -260,7 +267,7 @@ def hough_line(xy):
 
 def clean(xyz):
     a,b = hough_circle(xyz)
-    print("center found at ", a, b)
+   # print("center found at ", a, b)
 
 
     rad_z = np.zeros((len(xyz),2))

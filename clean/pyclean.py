@@ -216,19 +216,22 @@ def find_good_points(counts, thh, rad):
                 print("IndexError")
         indd = 0  
         for rr in possible_outer:  
-            if(rr[0] > (ordered[-1,0] - 50) and rr[0] < (ordered[-1,0] + 50)):       
-                yy = (rr[0]*m_begin + rr[1]*m_begin*m_begin+yint_begin)/(m_begin*m_begin+1)
-                xx = (rr[0]+rr[1]*m_begin-yint_begin*m_begin)/(m_begin*m_begin+1)
-                d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)
-                if(d < dist[indd]):
-                    dist[indd] = d
-                if(d < 22):
-                    idxx2.append(indd)
-                    if ((indd in sig_i2) is False):
-                        sig_i2.append(indd)
-                        r_signal2 = np.vstack((r_signal2,rr))
-
-            indd = indd+1
+            try:
+                if(rr[0] > (ordered[-1,0] - 50) and rr[0] < (ordered[-1,0] + 50)):       
+                    yy = (rr[0]*m_begin + rr[1]*m_begin*m_begin+yint_begin)/(m_begin*m_begin+1)
+                    xx = (rr[0]+rr[1]*m_begin-yint_begin*m_begin)/(m_begin*m_begin+1)
+                    d = math.sqrt((xx-rr[0])**2 +(yy-rr[1])**2)
+                    if(d < dist[indd]):
+                        dist[indd] = d
+                        if(d < 22):
+                            idxx2.append(indd)
+                            if ((indd in sig_i2) is False):
+                                sig_i2.append(indd)
+                                r_signal2 = np.vstack((r_signal2,rr))
+            
+                                indd = indd+1
+            except IndexError:
+                print("IndexError")
     return sig_i2, rRad, tRad, dist
 
 def hough_line(xy):
@@ -269,7 +272,6 @@ def clean(xyz):
     a,b = hough_circle(xyz)
    # print("center found at ", a, b)
 
-
     rad_z = np.zeros((len(xyz),2))
     th_z = np.zeros((len(xyz),2))
 
@@ -278,7 +280,6 @@ def clean(xyz):
         r_xy = np.sqrt((xy[0]-a)**2+(xy[1]-b)**2)
         rad_z[idx,:]=[xy[2],r_xy]
         th_xy = np.arctan((xy[1]-b)/(xy[0]-a))
-    #print(th_xy)
         th_z[idx,:] =[xy[2],th_xy]
         idx +=1
 
@@ -288,7 +289,6 @@ def clean(xyz):
     r_th[:,1] = th_z[:,1]*rad_z[:,1]   
 
     r,t, counts = hough_line(r_th)
-    #print("r, t = ", r, t)
     sig_i, rRad, tRad, dist = find_good_points(counts, th_z, rad_z)
 
     clean_xyz = np.column_stack((xyz,dist)) ###### append distances to data and return!

@@ -239,20 +239,13 @@ def hough_line(xy):
 
     """
     nbins = 500 # number of bins for r, theta histogram
-    max_val = 2000;
+    max_val = 2000
     th = np.linspace(0,math.pi,nbins)
-    #Hrad = [0,0]
-    Hrad = np.zeros((nbins*len(xy),2))
-    index = 0
-    for theta in th: #sweep over theta and bin radius r in Hrad
-        Radius = xy[:,0]*math.cos(theta) + xy[:,1]*math.sin(theta)
-        
-        for rr in Radius:
-            aRad = np.hstack((theta,rr))
-            #Hrad = np.vstack((Hrad,aRad))
-            Hrad[index,:] = aRad
-            index +=1
- 
+    Hrad = np.empty((nbins*len(xy),2))
+
+    Hrad[:, 0] = np.repeat(th, len(xy))
+    Hrad[:, 1] = np.tile(xy[:, 0], nbins) * np.cos(Hrad[:, 0]) + np.tile(xy[:, 1], nbins) * np.sin(Hrad[:, 0])
+
     #Hrad = Hrad[1:]
     
     #countsRad, xedgesRad, yedgesRad, ImageRad = plt.hist2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-500,500]],cmap=plt.cm.jet)

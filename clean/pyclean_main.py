@@ -25,7 +25,7 @@ def main():
     un_tmat = pytpc.utilities.tilt_matrix(0.10472)
     un_rotate_ang = 108*degrees
     rot = [cos(un_rotate_ang), -sin(un_rotate_ang)],[sin(un_rotate_ang), cos(un_rotate_ang)]
-    extra = 0
+   
     print(inFile)
     with h5py.File(args.output, 'a') as outFile:
         
@@ -45,7 +45,9 @@ def main():
         else:
             evts_to_process = n_evts
         #for i in range(evts_to_process):
+        i = 0
         while i < evts_to_process:
+            print(i)
             try:
                 evt = inFile[start+i+extra]
                 if((start+i)%1000 == 0):
@@ -67,7 +69,7 @@ def main():
             except(KeyError):
                 evts_to_process+=1
                 continue
-                #i-=1
+            i+=1
     return 0
 
 

@@ -9,6 +9,9 @@ import h5py
 from math import sin, cos
 from pytpc.constants import pi, degrees
 
+import logging
+logger = logging.getLogger(__name__)
+
 def main():
     parser = argparse.ArgumentParser(description='A script to clean data and write results to an HDF5 file')
     parser.add_argument('input', help='The input evt file')
@@ -22,7 +25,7 @@ def main():
     un_tmat = pytpc.utilities.tilt_matrix(0.10472)
     un_rotate_ang = 108*degrees
     rot = [cos(un_rotate_ang), -sin(un_rotate_ang)],[sin(un_rotate_ang), cos(un_rotate_ang)]
-
+    extra = 0
     print(inFile)
     with h5py.File(args.output, 'a') as outFile:
         
@@ -41,25 +44,30 @@ def main():
                 sys.exit(0)
         else:
             evts_to_process = n_evts
-        for i in range(evts_to_process):
-            evt = inFile[start+i]
-            if((start+i)%100 == 0):
-               print(start+i)            
-            raw_xyz = evt.xyzs(pads=pad_plane, peaks_only=True, return_pads=True,cg_times=True)
+        #for i in range(evts_to_process):
+        while i < evts_to_process:
+            try:
+                evt = inFile[start+i+extra]
+                if((start+i)%1000 == 0):
+                    print(start+i)            
+                    raw_xyz = evt.xyzs(pads=pad_plane, peaks_only=True, return_pads=True,cg_times=True)
                     
-            uvw = pytpc.evtdata.calibrate(raw_xyz,v_drift,12.5)
-            uvw = np.dot(tmat,uvw[:,:3].T).T
-            clean_uvw, center_uv = pyclean.clean(uvw)
-            nearest_neighbors = pyclean.nearest_neighbor_count(uvw,40) 
-            clean_xyz = np.column_stack((raw_xyz,nearest_neighbors,clean_uvw[:,-1]))
-            gp = outFile.require_group('clean')
-            deset = gp.create_dataset('{:d}'.format(evt.evt_id), data=clean_xyz, compression='gzip', shuffle=True)
-           
-        
-            cc = [center_uv[0],center_uv[1],0]
-            cc = np.dot(un_tmat,cc)  
-            cc = np.dot(rot,cc[:2].T).T
-            deset.attrs['center'] = cc
+                    uvw = pytpc.evtdata.calibrate(raw_xyz,v_drift,12.5)
+                    uvw = np.dot(tmat,uvw[:,:3].T).T
+                    clean_uvw, center_uv = pyclean.clean(uvw)
+                    nearest_neighbors = pyclean.nearest_neighbor_count(uvw,40) 
+                    clean_xyz = np.column_stack((raw_xyz,nearest_neighbors,clean_uvw[:,-1]))
+                    gp = outFile.require_group('clean')
+                    deset = gp.create_dataset('{:d}'.format(evt.evt_id), data=clean_xyz, compression='gzip', shuffle=True)     
+                    
+                    cc = [center_uv[0],center_uv[1],0]
+                    cc = np.dot(un_tmat,cc)  
+                    cc = np.dot(rot,cc[:2].T).T
+                    deset.attrs['center'] = cc
+            except(KeyError):
+                evts_to_process+=1
+                continue
+                #i-=1
     return 0
 
 

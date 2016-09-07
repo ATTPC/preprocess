@@ -1,16 +1,38 @@
-
 import pyclean
 import argparse
 import pytpc
 import sys
 import numpy as np
 import h5py
-#import math
 from math import sin, cos
 from pytpc.constants import pi, degrees
+import pytpc.simulation
 
 import logging
 logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('[%(levelname)s:%(name)s] %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
+
+def event_iterator(num_input_evts, num_output_evts):
+    num_events_remaining = num_input_evts - num_output_evts
+    if num_events_remaining == 0:
+        logger.warning('All events have already been processed.')
+        raise StopIteration()
+    elif num_output_evts > 0:
+        logger.info('Already processed %d events. Continuing from where we left off.', num_output_evts)
+
+    first_evt = num_output_evts
+
+    for i in range(first_evt, num_input_evts):
+        if i % 100 == 0:
+            logger.info('At event %d / %d', i, num_input_evts)
+        yield i
+    else:
+        raise StopIteration()
 
 
 def main():
@@ -29,61 +51,33 @@ def main():
     rot = [cos(un_rotate_ang), -sin(un_rotate_ang)
            ], [sin(un_rotate_ang), cos(un_rotate_ang)]
 
-    print(inFile)
     with h5py.File(args.output, 'a') as outFile:
-
         gp = outFile.require_group('clean')
-        n_evts = len(inFile)
-        start = 0
-        if(len(gp) > 0):
-            finished_evts = len(gp)
-            print(finished_evts)
-            evts_to_process = n_evts - finished_evts
-            if evts_to_process > 0:
-                print('Already processed {} events. Continuing from where we left off.'.format(
-                    finished_evts))
-                start = finished_evts
-            else:
-                print('All events have already been processed.')
-                sys.exit(0)
-        else:
-            evts_to_process = n_evts
-        # for i in range(evts_to_process):
-        i = 0
-        while i < evts_to_process:
-            print(i)
+        logger.info('Finding length of input file...')
+        num_input_evts = len(inFile)
+        logger.info('Input file contains %d events', num_input_evts)
+
+        num_output_evts = len(gp)
+
+        for evt_index in event_iterator(num_input_evts, num_output_evts):
             try:
-                evt = inFile[start + i + extra]
-                if((start + i) % 1000 == 0):
-                    print(start + i)
-                    raw_xyz = evt.xyzs(
-                        pads=pad_plane,
-                        peaks_only=True,
-                        return_pads=True,
-                        cg_times=True)
-
-                    uvw = pytpc.evtdata.calibrate(raw_xyz, v_drift, 12.5)
-                    uvw = np.dot(tmat, uvw[:, :3].T).T
-                    clean_uvw, center_uv = pyclean.clean(uvw)
-                    nearest_neighbors = pyclean.nearest_neighbor_count(uvw, 40)
-                    clean_xyz = np.column_stack(
-                        (raw_xyz, nearest_neighbors, clean_uvw[:, -1]))
-                    gp = outFile.require_group('clean')
-                    deset = gp.create_dataset(
-                        '{:d}'.format(
-                            evt.evt_id),
-                        data=clean_xyz,
-                        compression='gzip',
-                        shuffle=True)
-
-                    cc = [center_uv[0], center_uv[1], 0]
-                    cc = np.dot(un_tmat, cc)
-                    cc = np.dot(rot, cc[:2].T).T
-                    deset.attrs['center'] = cc
-            except(KeyError):
-                evts_to_process += 1
+                evt = inFile[evt_index]
+                raw_xyz = evt.xyzs(pads=pad_plane, peaks_only=True, return_pads=True,
+                                   cg_times=True, baseline_correction=True)
+                uvw = pytpc.evtdata.calibrate(raw_xyz, v_drift, 12.5)
+                uvw = np.dot(tmat, uvw[:, :3].T).T
+                clean_uvw, center_uv = pyclean.clean(uvw)
+                nearest_neighbors = pyclean.nearest_neighbor_count(uvw, 40)
+                clean_xyz = np.column_stack((raw_xyz, nearest_neighbors, clean_uvw[:, -1]))
+                gp = outFile.require_group('clean')
+                deset = gp.create_dataset('{:d}'.format(evt.evt_id), data=clean_xyz, compression='gzip', shuffle=True)
+                cc = [center_uv[0], center_uv[1], 0]
+                cc = np.dot(un_tmat, cc)
+                cc = np.dot(rot, cc[:2].T).T
+                deset.attrs['center'] = cc
+            except(KeyError) as err:
+                print(err)
                 continue
-            i += 1
     return 0
 
 

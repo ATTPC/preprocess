@@ -17,41 +17,8 @@ This is because the relationship between (z,r*phi) is only approximately linear.
 E.g. for 46Ar experiment, 8mm was a good cutoff for this paramemter, giving quite clean results.
 """
 
-import sys
 import numpy as np
-import pytpc
 import math
-import h5py
-import argparse
-
-"""
-def smart_progress_bar(iterable, expected_size=None):
-    if not sys.stdout.isatty():
-
-        def print_progress(iterable, expected_size=None):
-            from math import log10, floor
-
-            if expected_size is None:
-                max_ = len(iterable)
-            else:
-                max_ = expected_size
-
-            if max_ > 100:
-                interval = 10**floor(log10(max_ // 100))
-            else:
-                interval = 1
-
-            for i, v in enumerate(iterable):
-                if i % interval == 0:
-                    print('At event {} / {}'.format(i, max_), flush=True)
-                yield v
-
-        return print_progress(iterable, expected_size)
-
-    else:
-        from clint.textui import progress
-        return progress.bar(iterable, expected_size=expected_size)
-"""
 
 
 def nearest_neighbor_count(data, radius):
@@ -102,9 +69,9 @@ def hough_circle(xyzs):
 def min_distance(point, array):
     d = []
     for a in array:
-        #print("a = ", a)
+        # print("a = ", a)
         d.append(math.sqrt((a[0] - point[0])**2 + (a[1] - point[1])**2))
-        #i += 1
+        # i += 1
     return min(d)
 
 
@@ -259,10 +226,10 @@ def hough_line(xy):
     Hrad[:, 1] = np.tile(xy[:, 0], nbins) * np.cos(Hrad[:, 0]) + \
         np.tile(xy[:, 1], nbins) * np.sin(Hrad[:, 0])
 
-    #Hrad = Hrad[1:]
+    # Hrad = Hrad[1:]
 
-    #countsRad, xedgesRad, yedgesRad, ImageRad = plt.hist2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-500,500]],cmap=plt.cm.jet)
-    #countsRad, xedgesRad, yedgesRad, ImageRad = plt.hist2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-2000,2000]],cmap=plt.cm.jet)
+    # countsRad, xedgesRad, yedgesRad, ImageRad = plt.hist2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-500,500]],cmap=plt.cm.jet)
+    # countsRad, xedgesRad, yedgesRad, ImageRad = plt.hist2d(Hrad[:,0], Hrad[:,1], nbins,range=[[0,math.pi],[-2000,2000]],cmap=plt.cm.jet)
     countsRad, xedgesRad, yedgesRad = np.histogram2d(
         Hrad[:, 0], Hrad[:, 1], nbins, range=[[0, math.pi], [-max_val, max_val]])
     iRad, jRad = np.unravel_index(countsRad.argmax(), countsRad.shape)
@@ -275,7 +242,7 @@ def hough_line(xy):
 
 def clean(xyz):
     a, b = hough_circle(xyz)
-   # print("center found at ", a, b)
+    # print("center found at ", a, b)
 
     rad_z = np.zeros((len(xyz), 2))
     th_z = np.zeros((len(xyz), 2))

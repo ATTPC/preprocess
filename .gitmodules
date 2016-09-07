@@ -1,0 +1,3 @@
+[submodule "modules/pytpc"]
+	path = modules/pytpc
+	url = https://github.com/attpc/pytpc.git

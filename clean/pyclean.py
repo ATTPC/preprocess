@@ -34,6 +34,7 @@ formatter = logging.Formatter('[%(levelname)s:%(name)s] %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
+logging.captureWarnings(True)
 
 
 def nearest_neighbor_count(data, radius):
@@ -285,19 +286,20 @@ def clean(xyz):
     return clean_xyz, center
 
 
-def event_iterator(num_input_evts, num_output_evts):
-    num_events_remaining = num_input_evts - num_output_evts
+def event_iterator(input_evtid_set, output_evtid_set):
+    unprocessed_events = input_evtid_set - output_evtid_set
+    num_input_evts = len(input_evtid_set)
+    num_events_remaining = len(unprocessed_events)
+    num_events_finished = len(output_evtid_set)
     if num_events_remaining == 0:
         logger.warning('All events have already been processed.')
         raise StopIteration()
-    elif num_output_evts > 0:
-        logger.info('Already processed %d events. Continuing from where we left off.', num_output_evts)
+    elif num_events_finished > 0:
+        logger.info('Already processed %d events. Continuing from where we left off.', num_events_finished)
 
-    first_evt = num_output_evts
-
-    for i in range(first_evt, num_input_evts):
+    for i in unprocessed_events:
         if i % 100 == 0:
-            logger.info('At event %d / %d', i, num_input_evts)
+            logger.info('Processed %d / %d events', i, num_input_evts)
         yield i
     else:
         raise StopIteration()
@@ -342,13 +344,14 @@ def main():
 
     with h5py.File(args.output, 'a') as outFile:
         gp = outFile.require_group('clean')
-        logger.info('Finding length of input file...')
-        num_input_evts = len(inFile)
+        logger.info('Finding set of event IDs in input')
+        input_evtid_set = {k for k in inFile.evtids()}
+        num_input_evts = len(input_evtid_set)
         logger.info('Input file contains %d events', num_input_evts)
 
-        num_output_evts = len(gp)
+        output_evtid_set = {int(k) for k in gp}
 
-        for evt_index in event_iterator(num_input_evts, num_output_evts):
+        for evt_index in event_iterator(input_evtid_set, output_evtid_set):
             try:
                 evt = inFile[evt_index]
                 clean_xyz, cc = cleaner.process_event(evt)
